@@ -1,0 +1,7 @@
+インスールされているパッケージ一覧：conda list
+
+何も考えずにインストールするとき：conda install ***
+
+
+バージョン等を指定してインストールするとき：
+候補を表示：anaconda search -t conda PyProj

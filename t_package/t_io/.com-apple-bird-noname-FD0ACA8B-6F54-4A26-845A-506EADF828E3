@@ -1,0 +1,144 @@
+'''
+shapefile_read(file):shapefileを読み込む
+    #input:file=file name
+
+epsg_conv(df, value):shapedataのgeometryを変換
+    #input:df=shapedata, value=4326:lat,lon, 3857:web
+
+boundary_plot(file, df):境界線をプロット
+    #input:file=file name, df=shapedata
+
+point_plot(file, df, D):境界線と点をプロット
+    #input:file_file name, df=shapedata, D=2dim array
+
+define_r_name(c, p):region nameのkeyを返す
+    #input:c=city, p=partition
+
+conv_Borough_region(r):region name --> region codeに変換
+    #input:r=region name
+
+mapping(file, df, col, vmin, vmax, color):地図に色塗り
+    #input:file=file name, col=column name, vmin=cbarの最小値, vmax=cbarの最大値, color=color
+
+shapedata_add_col(df, D, c, p):dfの列にDのデータ値を追加
+    #input:df=shape data, D=2d-list
+'''
+
+import matplotlib.pyplot as plt
+import pandas as pd
+import geopandas as gpd
+import matplotlib.pyplot as plt
+import numpy as np
+from mpl_toolkits.axes_grid1 import make_axes_locatable
+import seaborn as sns
+
+sns.set()
+#sns.set_style("whitegrid", {'grid.linestyle': '--'})
+sns.set_style("white")
+sns.set_context("paper", 1.5, {"lines.linewidth": 1.5})#font size, line width
+sns.set_palette("deep")
+
+myblue = 'navy'
+dpi=100
+
+def shapefile_read(file):
+    #shapefileを読み込む
+    #input:file=file name
+    df = gpd.read_file(file)
+    return df
+
+def epsg_conv(df, value):
+    #shapedataのgeometryを変換
+    #input:df=shapedata, value=4326:lat,lon, 3857:web
+    df = df.to_crs(epsg=value)
+    return df
+
+def boundary_plot(file, df):
+    #境界線をプロット
+    #input:file=file name, df=shapedata
+    df.boundary.plot(figsize=(10,10), edgecolor='black', linewidth=0.3)
+    plt.savefig(file, format='png', dpi=dpi)
+    plt.close()
+
+def point_plot(file, df, D):
+    #境界線と点をプロット
+    #input:file_file name, df=shapedata, D=2dim array
+    points = pd.DataFrame({'x': D[:,0], 'y': D[:,1]})
+    points_geo = gpd.GeoDataFrame(geometry=gpd.points_from_xy(points.x, points.y))
+    points_geo.crs = "EPSG:4326"
+    points_geo = epsg_conv(points_geo, 3857)
+    base = df.boundary.plot(figsize=(10,10), edgecolor='black', linewidth=0.3)
+    points_geo.plot(ax=base, marker='o', color=myblue, markersize=0.1)
+    plt.savefig(file, format='png', dpi=dpi)
+    plt.close()
+
+def define_r_name(c, p):
+    #region nameのkeyを返す
+    #input:c=city, p=partition
+    if c == 'CHI':
+        if p == 'Community':
+            r_name = 'area_num_1'
+        elif p == 'Precinct':
+            r_name = 'dist_num'
+    elif c == 'NYC':
+        if p == 'Borough':
+            r_name = 'boro_code'
+        elif p == 'Community':
+            r_name = 'boro_cd'
+        elif p == 'Precinct':
+            r_name = 'precinct'
+        elif p == 'UHF42':
+            r_name = 'UHFCODE'
+        elif p == 'Zip':
+            r_name = 'ZIPCODE'
+    return r_name
+
+def conv_Borough_region(r):
+    #region name --> region codeに変換
+    #input:r=region name
+    if r == 'staten island':
+        code = 5
+    elif r == 'bronx':
+        code = 2
+    elif r == 'queens':
+        code = 4
+    elif r == 'brooklyn':
+        code = 3
+    elif r== 'manhattan':
+        code = 1
+    else:
+        print('error')
+    return code
+
+def mapping(file, df, col, vmin, vmax, color):
+    #地図に色塗り
+    #input:file=file name, col=column name, vmin=cbarの最小値, vmax=cbarの最大値, color=color
+    fig, ax = plt.subplots(figsize=(10,10))
+    divider = make_axes_locatable(ax)
+    cax = divider.append_axes("right", size="5%", pad=0.1)
+    df.plot(
+        edgecolor='silver',#'black', 
+        linewidth=0.5,#0.3, 
+        column=col, 
+        vmin=vmin,
+        vmax=vmax,
+        cmap=color, 
+        ax=ax, 
+        legend=True, 
+        cax=cax)
+    plt.savefig(file, format='png', dpi=dpi)
+    plt.close()
+
+def shapedata_add_col(df, D, c, p):
+    #dfの列にDのデータ値を追加
+    #input:df=shape data, D=list
+    r_name = define_r_name(c, p)
+    D = np.array(D)
+    d = np.array(D[:,0]).astype(int)
+    codes = df[r_name]
+    vec = []
+    for code in codes:
+        id = np.where(d == int(code))[0][0]
+        vec.append(D[id,1])
+    df['values'] = np.array(vec).astype(float)
+    return df
